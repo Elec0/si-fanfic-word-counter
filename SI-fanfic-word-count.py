@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import argparse
 from dataclasses import dataclass
+import pickle
 import re
 import subprocess
 import requests
@@ -349,9 +350,13 @@ def run_scraper_sv():
         print(f"Top level error with {e}!")
         print("Stopping here, outputting what we have.")
 
+    # Pickle the threads in case we need to restart
+    with open("sv-threads.pkl", "wb") as f:
+        pickle.dump(threads, f)
+
     # Write threads to CSV file with delimeter = '|'
     # Filename should be current datetime
-    with open(f"sv-output-{time.strftime('%Y-%m-%d-%H-%M-%S')}.csv", "w") as f:
+    with open(f"sv-output-{time.strftime('%Y-%m-%d-%H-%M-%S')}.csv", "w", encoding="utf-8") as f:
         for thread in threads:
             f.write(f"{thread.name}|{thread.url}|{thread.word_count}\n")
 
