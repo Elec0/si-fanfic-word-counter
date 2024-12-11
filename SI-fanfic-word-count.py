@@ -393,7 +393,7 @@ def run_scraper_ao3():
     Output the CSV file to the current directory.
     """
     url = "https://archiveofourown.org/tags/Self-Insert/works?commit=Sort+and+Filter&page=1&work_search%5Bcomplete%5D=&work_search%5Bcrossover%5D=&work_search%5Bdate_from%5D=&work_search%5Bdate_to%5D=&work_search%5Bexcluded_tag_names%5D=&work_search%5Blanguage_id%5D=&work_search%5Bother_tag_names%5D=&work_search%5Bquery%5D=&work_search%5Bsort_column%5D=word_count&work_search%5Bwords_from%5D=&work_search%5Bwords_to%5D="
-    command = f"python AO3Scraper/ao3_work_ids.py '{url}' --out_csv=ao3-output-{time.strftime('%Y-%m-%d-%H-%M-%S')}.csv"
+    command = f"python AO3Scraper/ao3_work_ids.py '{url}' --out_csv=ao3-output-{time.strftime('%Y-%m-%d-%H-%M-%S')}"
 
     # Run the command with subprocess
     s = subprocess.run(shlex.split(command))
