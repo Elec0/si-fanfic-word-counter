@@ -2,12 +2,15 @@ from abc import ABC, abstractmethod
 import argparse
 from dataclasses import dataclass
 import re
+import subprocess
 import requests
 from bs4 import BeautifulSoup
 import time
 import traceback
 # Move cwd to the directory of this file
 import os
+import shlex
+
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -48,14 +51,14 @@ class BaseSite(ABC):
 
 
 class SV(BaseSite):
-    url = "https://forums.sufficientvelocity.com/threads/sufficiently-inserted-sv-self-insert-archive-v2-0.41389"
     url_pattern = "{}/threadmarks"
     start_text = "Statistics ("
     end_text = "words"
     error_text = "Oops! We ran into some problems."
 
-    def __init__(self) -> None:
+    def __init__(self, url) -> None:
         super().__init__()
+        self.url = url
         print("\n")
         print("=========================")
         print("== Sufficient Velocity ==")
@@ -82,7 +85,7 @@ class SV(BaseSite):
 class QQ(BaseSite):
     url = "https://forum.questionablequesting.com/threads/questing-for-insertion-qq-self-insert-archive.1094"
     url_pattern = "{}/threadmarks?category_id=1"
-    start_text = "Threadmark Statistics"
+    start_text = "Statistics ("
     threadmark_pattern = r"\t*((?:\d+,)?\d+[\s\w]+), Word Count: (\d+\.?\d+[kKmM]?)"
     error_text = "Oops! We ran into some problems."
 
@@ -100,11 +103,11 @@ class QQ(BaseSite):
 
         QQ's format is::
     
-            Threadmark Statistics x,xxx threadmarks, Word Count: x[k|m]
+            Statistics x,xxx threadmarks, Word Count: x[k|m]
 
         But the output from BeautifulSoup looks like this (example)::
 
-            Threadmark Statistics\\t\\t\\t7 threadmarks, Word Count: 4.9k9adam4 (7 threadmarks)
+            Statistics\\t\\t\\t7 threadmarks, Word Count: 4.9k9adam4 (7 threadmarks)
 
         So use the regex to extract the threadmarks and word count, groups 1 and 2 respectively
         """
@@ -183,7 +186,7 @@ class Scraper:
         return threads
 
     def status_code_429(self, page: requests.Response, p_cur, p_max) -> None:
-        self.hit_rate_limit()
+        self.hit_rate_limit(p_cur, p_max)
 
         print(f"(..{p_cur}/{p_max}..)")
         time.sleep(self.site.rate_limit_time)
@@ -218,7 +221,7 @@ class Scraper:
         # Calculate the ETA
         eta = (p_max - p_cur) / rate
 
-        print(f"Rate limited! Rate: {rate:.2f} req/s, ETA: {self.fmt_sec(eta)}")
+        print(f"Rate limited! Rate: {rate:.2f} req/s, ETA: {self.fmt_sec(int(eta))}")
 
     @staticmethod
     def fmt_sec(sec: int) -> str:
@@ -310,6 +313,7 @@ def init_argparse() -> argparse.ArgumentParser:
     Two arguments, booleans:
     * --sufficient-velocity (-sv)
     * --questionable-questing (-qq)
+    * --archive-of-our-own (-ao3)
     """
     parser = argparse.ArgumentParser(
         description="Scrape word counts from SI fanfics on various sites")
@@ -317,11 +321,14 @@ def init_argparse() -> argparse.ArgumentParser:
                         help="Scrape word counts from Sufficient Velocity")
     parser.add_argument("-qq", "--questionable-questing", action="store_true",
                         help="Scrape word counts from Questionable Questing")
+    parser.add_argument("-ao3", "--archive-of-our-own", action="store_true",
+                        help="Scrape word counts from Archive of Our Own")
     return parser
 
 
 def run_scraper_sv():
-    scraper = Scraper(SV())
+    url = "https://forums.sufficientvelocity.com/threads/sufficiently-inserted-sv-self-insert-archive-v2-0.41389"
+    scraper = Scraper(SV(url))
 
     threads = scraper.parse_index_page(
         scraper.site.url,
@@ -350,7 +357,8 @@ def run_scraper_sv():
 
 
 def run_scraper_qq():
-    scraper = Scraper(QQ())
+    url = "https://forum.questionablequesting.com/threads/questing-for-insertion-qq-self-insert-archive.1094"
+    scraper = Scraper(SV(url))
 
     threads = scraper.parse_index_page(
         scraper.site.url,
@@ -373,6 +381,24 @@ def run_scraper_qq():
             f.write(f"{thread.name}|{thread.url}|{thread.word_count}\n")
 
 
+def run_scraper_ao3():
+    """
+    Use AO3Scraper from https://github.com/radiolarian/AO3Scraper instead of writing our own.
+
+    Run the AO3Scraper with the following command:
+    ```
+    python AO3Scraper/ao3_work_ids.py https://archiveofourown.org/tags/Self-Insert/works?commit=Sort+and+Filter&page=1&work_search%5Bcomplete%5D=&work_search%5Bcrossover%5D=&work_search%5Bdate_from%5D=&work_search%5Bdate_to%5D=&work_search%5Bexcluded_tag_names%5D=&work_search%5Blanguage_id%5D=&work_search%5Bother_tag_names%5D=&work_search%5Bquery%5D=&work_search%5Bsort_column%5D=word_count&work_search%5Bwords_from%5D=&work_search%5Bwords_to%5D=
+    ```
+
+    Output the CSV file to the current directory.
+    """
+    url = "https://archiveofourown.org/tags/Self-Insert/works?commit=Sort+and+Filter&page=1&work_search%5Bcomplete%5D=&work_search%5Bcrossover%5D=&work_search%5Bdate_from%5D=&work_search%5Bdate_to%5D=&work_search%5Bexcluded_tag_names%5D=&work_search%5Blanguage_id%5D=&work_search%5Bother_tag_names%5D=&work_search%5Bquery%5D=&work_search%5Bsort_column%5D=word_count&work_search%5Bwords_from%5D=&work_search%5Bwords_to%5D="
+    command = f"python AO3Scraper/ao3_work_ids.py '{url}' --out_csv=ao3-output-{time.strftime('%Y-%m-%d-%H-%M-%S')}.csv"
+
+    # Run the command with subprocess
+    s = subprocess.run(shlex.split(command))
+    print(s)
+
 if __name__ == "__main__":
     args = init_argparse().parse_args()
 
@@ -380,5 +406,7 @@ if __name__ == "__main__":
         run_scraper_sv()
     if args.questionable_questing:
         run_scraper_qq()
+    if args.archive_of_our_own:
+        run_scraper_ao3()
 
     print("Done!")
