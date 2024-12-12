@@ -324,6 +324,8 @@ def init_argparse() -> argparse.ArgumentParser:
                         help="Scrape word counts from Questionable Questing")
     parser.add_argument("-ao3", "--archive-of-our-own", action="store_true",
                         help="Scrape word counts from Archive of Our Own")
+    parser.add_argument("--start-page", type=int, default=1,
+                        help="Start page for AO3 scraping")
     return parser
 
 
@@ -386,7 +388,7 @@ def run_scraper_qq():
             f.write(f"{thread.name}|{thread.url}|{thread.word_count}\n")
 
 
-def run_scraper_ao3():
+def run_scraper_ao3(start_page):
     """
     Use AO3Scraper from https://github.com/radiolarian/AO3Scraper instead of writing our own.
 
@@ -398,7 +400,7 @@ def run_scraper_ao3():
     Output the CSV file to the current directory.
     """
     url = "https://archiveofourown.org/tags/Self-Insert/works?commit=Sort+and+Filter&page=1&work_search%5Bcomplete%5D=&work_search%5Bcrossover%5D=&work_search%5Bdate_from%5D=&work_search%5Bdate_to%5D=&work_search%5Bexcluded_tag_names%5D=&work_search%5Blanguage_id%5D=&work_search%5Bother_tag_names%5D=&work_search%5Bquery%5D=&work_search%5Bsort_column%5D=word_count&work_search%5Bwords_from%5D=&work_search%5Bwords_to%5D="
-    command = f"python AO3Scraper/ao3_work_ids.py '{url}' --out_csv=ao3-output-{time.strftime('%Y-%m-%d-%H-%M-%S')}"
+    command = f"python AO3Scraper/ao3_work_ids.py '{url}' --start_page {start_page} --out_csv=ao3-output-{time.strftime('%Y-%m-%d-%H-%M-%S')}"
 
     # Run the command with subprocess
     s = subprocess.run(shlex.split(command))
@@ -412,6 +414,6 @@ if __name__ == "__main__":
     if args.questionable_questing:
         run_scraper_qq()
     if args.archive_of_our_own:
-        run_scraper_ao3()
+        run_scraper_ao3(int(args.start_page))
 
     print("Done!")
